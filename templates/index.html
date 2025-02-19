@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Detection System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .video-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .video-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .video-container img, 
+        .video-container video {
+            width: 100%;
+            height: auto;
+        }
+        .results-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        #uploadForm {
+            margin-bottom: 20px;
+        }
+        #detectionsList {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Vehicle Detection System</h1>
+        
+        <div class="upload-section">
+            <h2>Upload File</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".mp4,.avi,.png,.jpg,.jpeg" required>
+                <button type="submit" class="button">Upload and Process</button>
+            </form>
+        </div>
+
+        <div class="video-section">
+            <h2>Video Feed</h2>
+            <div id="mediaContainer" class="video-container">
+                <img src="{{ url_for('default_video') }}" alt="Video Stream" id="defaultVideo">
+            </div>
+            <div id="detectionsList">
+                <!-- Detection results will be listed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const mediaContainer = document.getElementById('mediaContainer');
+            const detectionsList = document.getElementById('detectionsList');
+            const defaultVideo = document.getElementById('defaultVideo');
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                // Remove default video
+                if (defaultVideo) {
+                    defaultVideo.remove();
+                }
+                
+                // Clear previous results
+                mediaContainer.innerHTML = '';
+                detectionsList.innerHTML = '';
+                
+                // Display processed media
+                if (data.result_image) {
+                    mediaContainer.innerHTML = `<img src="${data.result_image}" alt="Processed Image">`;
+                } else if (data.result_video) {
+                    mediaContainer.innerHTML = `<video controls autoplay src="${data.result_video}"></video>`;
+                }
+                
+                // Display detections
+                let detectionsHTML = '<h3>Detections:</h3><ul>';
+                if (Array.isArray(data.detections)) {
+                    data.detections.forEach((detection, index) => {
+                        detectionsHTML += `<li>Frame ${index + 1}:<br>`;
+                        if (detection.plates.length > 0) {
+                            detectionsHTML += `Number Plates: ${detection.plates.join(', ')}<br>`;
+                        }
+                        if (detection.helmet_status.length > 0) {
+                            detectionsHTML += `Helmet Status: ${detection.helmet_status.join(', ')}`;
+                        }
+                        detectionsHTML += '</li>';
+                    });
+                } else {
+                    if (data.detections.plates.length > 0) {
+                        detectionsHTML += `<li>Number Plates: ${data.detections.plates.join(', ')}</li>`;
+                    }
+                    if (data.detections.helmet_status.length > 0) {
+                        detectionsHTML += `<li>Helmet Status: ${data.detections.helmet_status.join(', ')}</li>`;
+                    }
+                }
+                detectionsHTML += '</ul>';
+                detectionsList.innerHTML = detectionsHTML;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the file.');
+            }
+        };
+    </script>
+</body>
+</html>
